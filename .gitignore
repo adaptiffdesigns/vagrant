@@ -6,3 +6,5 @@
 .vagrant*
 www/*
 !www/index.php
+postinstall/*
+!postinstall/README.md

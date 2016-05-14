@@ -34,7 +34,7 @@ export LC_ALL=en_US.UTF-8
 #
 # Hostname
 #
-hostnamectl set-hostname phalcon-vm
+hostnamectl set-hostname $2
 
 #
 # MySQL with root:<no password>
@@ -42,10 +42,25 @@ hostnamectl set-hostname phalcon-vm
 
 apt-get -q -y install mysql-server-5.6 mysql-client-5.6 php5-mysql
 
-#
-# Apache
-#
-apt-get install -y apache2 libapache2-mod-php5
+case "$1" in
+    apache)
+        #
+        # Apache
+        #
+        apt-get install -y apache2 libapache2-mod-php5
+    ;;
+    nginx)
+        #
+        # nginx
+        #
+        apt-get install -y nginx php5-fpm
+    ;;
+    *)
+        echo "Invalid webserver supplied"
+        exit 1
+    ;;
+esac
+
 
 
 #
@@ -119,14 +134,17 @@ php5enmod libsodium
 #
 # Zephir
 #
-git clone --depth=1 git://github.com/phalcon/zephir.git
-(cd zephir && ./install -c)
+#git clone --depth=1 git://github.com/phalcon/zephir.git
+#(cd zephir && ./install -c)
 
 #
 # Install Phalcon Framework
 #
-git clone --depth=1 git://github.com/phalcon/cphalcon.git
-(cd cphalcon && zephir build)
+#git clone --depth=1 git://github.com/phalcon/cphalcon.git
+#(cd cphalcon && zephir build)
+sudo apt-add-repository ppa:phalcon/stable
+sudo apt-get update
+sudo apt-get install php5-phalcon
 echo -e "extension=phalcon.so" | tee /etc/php5/mods-available/phalcon.ini > /dev/null
 php5enmod phalcon
 
@@ -163,22 +181,99 @@ mv composer.phar /usr/local/bin/composer
 #
 # Apache VHost
 #
-cd ~
-echo '<VirtualHost *:80>
-        DocumentRoot /vagrant/www
-        ErrorLog  /vagrant/www/projects-error.log
-        CustomLog /vagrant/www/projects-access.log combined
-</VirtualHost>
+cd /var/www/
+case "$1" in
+    apache)
+        #
+        # Apache VHost
+        #
+        echo '<VirtualHost *:80>
+            DocumentRoot /var/www/'$2'
+            ServerName '$2'
+            ServerAlias www.'$2'
+            ErrorLog  /var/www/projects-error.log
+            CustomLog /var/www/projects-access.log combined
+        </VirtualHost>
 
-<Directory "/vagrant/www">
-        Options Indexes Followsymlinks
-        AllowOverride All
-        Require all granted
-</Directory>' > vagrant.conf
+        <Directory "/var/www/'$2'">
+                Options Indexes Followsymlinks
+                AllowOverride All
+                Require all granted
+        </Directory>' > vagrant.conf
+        mv vagrant.conf /etc/apache2/sites-available
+    ;;
+    nginx)
+        #
+        # nginx server block
+        #
+        echo 'server {
+            listen 80;
 
-mv vagrant.conf /etc/apache2/sites-available
+            server_name '$2';
+            set $ipl /var/www/meters;
+            set $fcgi_path 127.0.0.1:9000;
+
+            root $ipl/public;
+            rewrite ^/(.*)/$ /$1 permanent;
+
+            # Enable Gzip
+            gzip on;
+            gzip_http_version 1.0;
+            gzip_types application/x-javascript text/javascript text/css application/pdf;
+            gzip_vary on;
+            gzip_proxied any;
+            gzip_disable "msie6";
+
+            #common
+            index index.php index.html index.htm;
+            location / {
+                try_files $uri $uri/ /index.php?_url=$uri&$args;
+            }
+
+            location ~ \.php$ {
+                try_files $uri =404;
+                fastcgi_split_path_info ^(.+\.php)(/.+)$;
+                fastcgi_pass $fcgi_path;
+                fastcgi_index index.php;
+                fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+                include fastcgi_params;
+            }
+            location ~ /\.ht {
+                deny all;
+            }
+            location /__data {
+                 alias $ipl/data/public;
+                location ~ \.php$ {
+                    fastcgi_split_path_info ^/__data/(.*)(.*);
+                    fastcgi_pass $fcgi_path;
+                    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+                    include fastcgi_params;
+                }
+            }
+
+            location /__tests {
+                alias $ipl/tests/report;
+                index index.html index.htm;
+            }
+
+            location ~* ^/(css|img|js|flv|swf|download)/(.+)$ {
+                root $ipl/public;
+            }
+
+            #deny .inc .FFV CVS
+            location ~ \.inc$ {
+                deny all;
+            }
+            location ~ /(CVS:\.FFV)/ {
+                deny all;
+            }
+        }' > /etc/nginx/conf.d/vagrant.conf
+
+    ;;
+esac
+
+# TODO:: See if this only applys to apache.
 a2enmod rewrite
-
 
 #
 # Install Phalcon DevTools
@@ -207,12 +302,28 @@ sed -i 's/display_errors = Off/display_errors = On/' /etc/php5/apache2/php.ini
 #  Append session save location to /tmp to prevent errors in an odd situation..
 sed -i '/\[Session\]/a session.save_path = "/tmp"' /etc/php5/apache2/php.ini
 
-#
-# Reload apache
-#
+# TODO:: See if this only applys to apache.
 a2ensite vagrant
 a2dissite 000-default
-service apache2 restart
+case "$1" in
+    apache)
+        #
+        # Reload apache
+        #
+        service apache2 restart
+    ;;
+    nginx)
+        #
+        # nginx
+        #
+        service nginx restart
+    ;;
+    *)
+        echo "Invalid webserver supplied"
+        exit 1
+    ;;
+esac
+
 service mongodb restart
 
 #
@@ -232,5 +343,5 @@ echo -e
 echo -e "Then follow the README.md to copy/paste the VirtualHost!\n"
 
 echo -e "----------------------------------------"
-echo -e "Default Site: http://192.168.50.4"
+echo -e "Default Site: $2"
 echo -e "----------------------------------------"

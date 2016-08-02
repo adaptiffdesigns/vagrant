@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
-require './vagrant/requirements.rb'
-require './vagrant/boxes.rb'
+require './requirements.rb'
+require './boxes.rb'
 
 # Don't touch unless you know what you're doing!
 
@@ -27,13 +27,14 @@ Vagrant.configure("2") do |config|
 
     # SSH settings.
     config.ssh.username      = "root"
+    config.ssh.password      = "vagrant"
     config.ssh.forward_agent = true
     if File.exists?(KEYS.private)
         config.ssh.private_key_path = [ KEYS.private ]
     end
 
-    PRODUCTS.each do |cfg|
-        config.vm.define cfg[:name] do |node|
+    PRODUCTS.each do |name, cfg|
+        config.vm.define name do |node|
             # Variables.
             node.vm.box              = cfg[:box]
             node.vm.hostname         = cfg[:name]

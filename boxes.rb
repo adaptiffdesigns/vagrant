@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # # vi: set ft=ruby :
 PRODUCTS = {
-    :ubuntu-a => {
+    :ubuntuapache => {
         :arch     => "x86_64",
         :box      => "ubuntu/trusty64",
         :ip       => "192.168.50.2",
@@ -10,7 +10,7 @@ PRODUCTS = {
         :name     => "apache",
         :distro   => "ubuntu",
     },
-    :ubuntu-n => {
+    :ubuntunginx => {
         :arch     => "x86_64",
         :box      => "ubuntu/trusty64",
         :ip       => "192.168.50.3",
@@ -21,7 +21,7 @@ PRODUCTS = {
     },
     :centos => {
         :arch     => "x86_64",
-        :box      => "centos/7",
+        :box      => "bento/centos-7.2",
         :ip       => "192.168.50.4",
         :hostname => "centos.nginx.phalconvagrant.com", # Fill in desired hostname
         :web      => "nginx",

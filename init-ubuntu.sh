@@ -132,20 +132,14 @@ echo 'extension=libsodium.so' | tee /etc/php5/mods-available/libsodium.ini > /de
 php5enmod libsodium
 
 #
-# Zephir
-#
-#git clone --depth=1 git://github.com/phalcon/zephir.git
-#(cd zephir && ./install -c)
-
-#
 # Install Phalcon Framework
 #
-#git clone --depth=1 git://github.com/phalcon/cphalcon.git
-#(cd cphalcon && zephir build)
-sudo apt-add-repository ppa:phalcon/stable
-sudo apt-get update
-sudo apt-get install php5-phalcon
-echo -e "extension=phalcon.so" | tee /etc/php5/mods-available/phalcon.ini > /dev/null
+git clone --depth=1 git://github.com/phalcon/cphalcon.git
+cd cphalcon/build
+sudo ./install
+echo -e "extension=phalcon.so" | tee /etc/php5/apache2/conf.d/30-phalcon.ini > /dev/null
+#echo -e "extension=phalcon.so" | tee /etc/php5/fpm/conf.d/30-phalcon.ini > /dev/null
+
 php5enmod phalcon
 
 #

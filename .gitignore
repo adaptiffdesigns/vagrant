@@ -4,6 +4,7 @@
 .project
 .settings
 .vagrant*
+!vagrant
 www/*
 !www/index.php
 postinstall/*

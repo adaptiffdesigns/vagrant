@@ -1,0 +1,72 @@
+---
+- hosts: nodes
+  remote_user: root
+  tasks:
+    - name: "disable selinux"
+      shell: "/vagrant/install/selinux-disable.sh"
+    - name: "enable php56"
+      shell: "/usr/bin/yum-config-manager --enable remi-php56"
+    - name: "install packages"
+      yum: name={{ item }} state=present
+      with_items:
+        - ntp
+        - libselinux-python
+        - nodejs
+        - inotify-tools
+        - libnotify
+        - git
+        - sudo
+        - uglify-js
+        - phantomjs
+        - nginx
+        - openssl-perl
+        - redis
+        - postgresql95
+        - postgresql95-server
+        - postgresql95-contrib
+        - postgresql95-libs
+        - graphviz
+        - php
+        - php-cli
+        - php-fpm
+        - php-common
+        - php-intl
+        - php-ldap
+        - php-pdo
+        - php-pear
+        - php-pgsql
+        - php-pecl-apcu
+        - php-pecl-zendopcache
+        - php-process
+        - php-pecl-imagick
+        - php-gd
+        - php-pecl-igbinary
+        - php-mbstring
+        - php-pecl-redis
+        - php-soap
+        - php-tidy
+        - php-xml
+        - php-xmlrpc
+        - php-pecl-xattr
+        - php-zip
+    - name: "add groups"
+      group: name=apache state=present
+    - name: "add users"
+      user: name=apache state=present groups=apache shell=/sbin/nologin home=/var/www
+    - name: "initialising postgresql"
+      shell: "postgresql-setup initdb"
+    - name: "installing phalconphp"
+      shell: "/vagrant/install/phalcon.sh"
+    - name: "stopping services"
+      service: name={{ item }} enabled=no state=stopped
+      with_items:
+          - "httpd"
+    - name: "starting services"
+      service: name={{ item }} enabled=yes state=restarted
+      with_items:
+          - "iptables"
+          - "redis"
+          - "postgresql"
+          - "nginx"
+          - "php-fpm"
+...

@@ -1,0 +1,236 @@
+---
+- hosts: nodes
+  remote_user: root
+  tasks:
+    - name: "disable selinux"
+      shell: "/vagrant/install/selinux-disable.sh"
+    - name: "remove unwanted packages"
+      yum: name={{ item }} state=absent
+      with_items:
+        - nodejs-npm
+        - postgresql-libs
+    - name: "adding extra repos"
+      yum: name={{ item }} state=present
+      with_items:
+        - "http://yum.postgresql.org/9.5/redhat/rhel-6-x86_64/pgdg-sl95-9.5-2.noarch.rpm"
+        - "http://rpms.remirepo.net/enterprise/remi-release-6.rpm"
+        - "epel-release"
+        - "yum-utils"
+    - name: "tweaking the repo settings"
+      copy: src={{ item.key }} dest={{ item.value.dest }} owner={{ item.value.user }} group={{ item.value.group }} mode={{ item.value.mask }}
+      with_dict:
+        "./files/yum-nginx.sl.repo":
+          dest: "/etc/yum.repos.d/nginx.repo"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/yum-epel.sl.repo":
+          dest: "/etc/yum.repos.d/epel.repo"
+          user: root
+          group: root
+          mask: "0644"
+    - name: "enable php7"
+      shell: "/usr/bin/yum-config-manager --enable remi-php70"
+    - name: "install packages"
+      yum: name={{ item }} state=present
+      with_items:
+        - ntp
+        - libselinux-python
+        - nodejs
+        - inotify-tools
+        - libnotify
+        - git
+        - sudo
+        - uglify-js
+        - phantomjs
+        - nginx
+        - openssl-perl
+        - redis
+        - postgresql95
+        - postgresql95-server
+        - postgresql95-contrib
+        - postgresql95-libs
+        - graphviz
+        - php
+        - php-cli
+        - php-fpm
+        - php-common
+        - php-intl
+        - php-ldap
+        - php-pdo
+        - php-pear
+        - php-pgsql
+        - php-pecl-apcu
+        - php-pecl-zendopcache
+        - php-process
+        - php-pecl-imagick
+        - php-gd
+        - php-pecl-igbinary
+        - php-mbstring
+        - php-pecl-redis
+        - php-soap
+        - php-tidy
+        - php-xml
+        - php-xmlrpc
+        - php-pecl-xattr
+        - php-zip
+    - name: "add groups"
+      group: name=lighttpd state=present
+    - name: "add users"
+      user: name=lighttpd state=present groups=lighttpd shell=/sbin/nologin home=/var/www
+    - name: "removing old configs"
+      shell: "{{ item }}"
+      with_items:
+        - "/vagrant/install/remove-nginx-config.sh"
+        - "/vagrant/install/remove-php-config.sh"
+    - name: "creating directories"
+      file: dest={{ item.key }} state=directory owner={{ item.value.user }} group={{ item.value.group }} mode={{ item.value.mask }}
+      with_dict:
+        "/etc/cron.d":
+          user: root
+          group: root
+          mask: "0755"
+        "/etc/nginx":
+          user: root
+          group: root
+          mask: "0755"
+        "/etc/nginx/modules":
+          user: root
+          group: root
+          mask: "0755"
+        "/etc/nginx/ssl":
+          user: root
+          group: root
+          mask: "0755"
+        "/etc/php-fpm.d":
+          user: root
+          group: root
+          mask: "0755"
+        "/usr/local/lib":
+          user: root
+          group: root
+          mask: "0755"
+        "/var/log/squiz":
+          user: lighttpd
+          group: lighttpd
+          mask: "0770"
+        "/var/www/libs":
+          user: root
+          group: root
+          mask: "0755"
+        "/var/www/html":
+          user: lighttpd
+          group: lighttpd
+          mask: "0770"
+    - name: "initialising postgresql"
+      shell: "/vagrant/install/postgres-init.sh 9.5"
+    - name: "copying files"
+      copy: src={{ item.key }} dest={{ item.value.dest }} owner={{ item.value.user }} group={{ item.value.group }} mode={{ item.value.mask }}
+      with_dict:
+        "./files/imagemagick.policy.xml":
+          dest: "/etc/ImageMagick/policy.xml"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/iptables":
+          dest: "/etc/sysconfig/iptables"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/selinux-disable":
+          dest: "/etc/selinux/config"
+          user: root
+          group: root
+          mask: "0644"
+        "./hosts":
+          dest: "/etc/ansible/hosts"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/nginx.conf":
+          dest: "/etc/nginx/nginx.conf"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/nginx-nodes.conf":
+          dest: "/etc/nginx/nodes.conf"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/nginx-rules.conf":
+          dest: "/etc/nginx/rules.conf"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/nginx-fastcgi_params":
+          dest: "/etc/nginx/fastcgi_params"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/nginx-mime.types":
+          dest: "/etc/nginx/mime.types"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/labs.crt":
+          dest: "/etc/nginx/ssl/labs.crt"
+          user: lighttpd
+          group: lighttpd
+          mask: "0660"
+        "./files/labs.key":
+          dest: "/etc/nginx/ssl/labs.key"
+          user: lighttpd
+          group: lighttpd
+          mask: "0660"
+        "./files/redis28.conf":
+          dest: "/etc/redis.conf"
+          user: redis
+          group: redis
+          mask: "0644"
+        "./files/postgresql.conf":
+          dest: "/var/lib/pgsql/9.5/data/postgresql.conf"
+          user: postgres
+          group: postgres
+          mask: "0644"
+        "./files/pg_hba.conf":
+          dest: "/var/lib/pgsql/9.5/data/pg_hba.conf"
+          user: postgres
+          group: postgres
+          mask: "0644"
+        "./files/php70.ini":
+          dest: "/etc/php.ini"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/php-fpm.sl.conf":
+          dest: "/etc/php-fpm.conf"
+          user: root
+          group: root
+          mask: "0644"
+        "./files/php-fpm-nodes.conf":
+          dest: "/etc/php-fpm.d/nodes.conf"
+          user: root
+          group: root
+          mask: "0644"
+    - name: "running shell scripts"
+      shell: "{{ item }}"
+      with_items:
+        - "/vagrant/install/link-php-modules.sh"
+        - "/vagrant/install/disable-yum-autoupdate.sh"
+        - "/vagrant/install/update-kernel-settings.sh"
+        - "/vagrant/install/install-phantomjs.sh"
+        - "/vagrant/install/update-time.sh"
+        - "/vagrant/install/nginx-ownership-fix.sh"
+    - name: "stopping services"
+      service: name={{ item }} enabled=no state=stopped
+      with_items:
+          - "httpd"
+    - name: "starting services"
+      service: name={{ item }} enabled=yes state=restarted
+      with_items:
+          - "iptables"
+          - "redis"
+          - "postgresql-9.5"
+          - "nginx"
+          - "php-fpm"
+...

@@ -1,32 +1,11 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
-unless Vagrant.has_plugin?("vagrant-hostmanager")
-    puts "This Vagrant environment requires the 'vagrant-hostmanager' plugin."
-    puts "Please run `vagrant plugin install vagrant-hostmanager` and then run this command again."
-    exit 1
-end
+require './vagrant/requirements.rb'
+require './vagrant/boxes.rb'
 
-PRODUCTS = {
-    :apache => {
-        :arch     => "x86_64",
-        :box      => "ubuntu/trusty64",
-        :ip       => "192.168.50.2",
-        :hostname => "apache.phalconvagrant.com", # Fill in desired hostname
-        :web      => "apache",
-        :name     => "apache",
-    },
-    :nginx => {
-        :arch     => "x86_64",
-        :box      => "ubuntu/trusty64",
-        :ip       => "192.168.50.2",
-        :hostname => "nginx.phalconvagrant.com", # Fill in desired hostname
-        :web      => "nginx",
-        :name     => "nginx",
-    },
-}
 # Don't touch unless you know what you're doing!
 
-Vagrant.configure(2) do |config|
+Vagrant.configure("2") do |config|
     ssh              = ENV.has_key?('SSH_PATH') ? ENV['SSH_PATH'] : 'ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
     cached_addresses = {}
 
@@ -46,10 +25,16 @@ Vagrant.configure(2) do |config|
         cached_addresses[vm.name]
     end
 
-    PRODUCTS.each do |name, cfg|
-        config.vm.define name do |node|
-            # Base Box
-            # --------------------
+    # SSH settings.
+    config.ssh.username      = "root"
+    config.ssh.forward_agent = true
+    if File.exists?(KEYS.private)
+        config.ssh.private_key_path = [ KEYS.private ]
+    end
+
+    PRODUCTS.each do |cfg|
+        config.vm.define cfg[:name] do |node|
+            # Variables.
             node.vm.box              = cfg[:box]
             node.vm.hostname         = cfg[:name]
             node.hostmanager.aliases = [ "#{cfg[:hostname]}" ]
@@ -58,58 +43,66 @@ Vagrant.configure(2) do |config|
             if Vagrant.has_plugin?("vagrant-cachier")
                 node.cache.scope       = :box
                 node.cache.auto_detect = false
-                node.cache.enable :apt-get
+                node.cache.enable :yum
             end
 
-            # Connect to IP
-            # Note: Use an IP that doesn't conflict with any OS's DHCP (Below is a safe bet)
-            # --------------------
+            # Network Settings.
             node.vm.network "private_network", ip: cfg[:ip]
+            #node.vm.network "public_network"
 
-            # Forward to Port
-            # --------------------
-            node.vm.network :forwarded_port, guest: 3306, host: 3306, auto_correct: true
-
-            # Optional (Remove if desired)
-            # --------------------
-            node.vm.provider :virtualbox do |vb|
-                #vb.gui = true
-                vb.customize ["modifyvm", :id, "--usb", "off"]
-                vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-                vb.customize ["modifyvm", :id, "--memory", "1024"]
-                vb.customize ["modifyvm", :id, "--cpus", "2"]
-                vb.customize ["modifyvm", :id, "--ioapic", "on"]
-                vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-                vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+            # Virtualbox specific.
+            node.vm.provider :virtualbox do |vbox|
+                #vbox.gui = true
+                vbox.customize ["modifyvm", :id, "--name", cfg[:name]]
+                vbox.customize ["modifyvm", :id, "--usb", "off"]
+                vbox.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+                vbox.customize ["modifyvm", :id, "--memory", "512"]
             end
 
-            # If true, agent forwarding over SSH connections is enabled
-            # --------------------
-            node.ssh.forward_agent = true
+            # Setup folder mounting.
+            node.vm.synced_folder ".", "/vagrant"
 
-            # The shell to use when executing SSH commands from Vagrant
-            # --------------------
-            node.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'"
+            # Start the box up.
+            $config = <<-CONTENTS
+            # Setup fastestmirror plugin
+            INSTALLED=$(yum list installed --disablerepo='*' --enablerepo='sl' yum-plugin-fastestmirror 2>&1)
+            if [ "$?" != "0" ]; then
+                yum install -y -q --disablerepo="*" --enablerepo="sl" yum-plugin-fastestmirror
+                if [ -d /etc/yum.repos.d ]; then
+                    sed -i 's/^#mirrorlist/mirrorlist/' /etc/yum.repos.d/*.repo
+                fi
+                yum clean -q all
+            fi
 
-            # Synced Folders
-            # --------------------
-            node.vm.synced_folder ".", "/vagrant/", :mount_options => [ "dmode=777", "fmode=666" ]
-            node.vm.synced_folder "./www", "/vagrant/www/", :mount_options => [ "dmode=775", "fmode=644" ], :owner => 'www-data', :group => 'www-data'
+            ORIG=$(md5sum /etc/yum/pluginconf.d/fastestmirror.conf | cut -f 1 -d ' ')
+            TEST=$(md5sum /vagrant/install/files/fastestmirror.conf | cut -f 1 -d ' ')
+            if [[ "$ORIG" != "$TEST" ]]; then
+                cp /vagrant/install/files/fastestmirror.conf /etc/yum/pluginconf.d/fastestmirror.conf
+                yum clean -q all
+            fi
 
-            # Provisioning Scripts
-            # --------------------
-            $init = <<-CONTENTS
-                echo '------------------------------------------------------------init------------------------------------------------------------'
-                bash /vagrant/init.sh #{cfg[:web]} '#{cfg[:hostname]}'
+            #bash /vagrant/install/ssh-init.sh
+            #bash /vagrant/install/git-config.sh
             CONTENTS
-            $postinstall = <<-CONTENTS
-                bash postinstall.sh #{cfg[:name]} "#{cfg[:hostname]}" "#{ssh}"
-            CONTENTS
-
-            node.vm.provision "init", type: "shell", inline: $init
-            if Vagrant.has_plugin?("vagrant-host-shell")
-                node.vm.provision "postinstall", type: "host_shell", run: 'always', inline: $postinstall
+            node.vm.provision "config", type: "shell" do |s|
+                s.inline = $config
             end
+
+            node.vm.provision "system", type: "ansibleLocal" do |a|
+                a.playbook       = "install/systems/system.#{cfg[:distro]}.#{cfg[:web]}.yml"
+                a.verbose        = false
+                a.guest_folder   = "/vagrant/install"
+                a.limit          = "#{cfg[:name]}"
+                a.extra_vars     = {
+                    "url"    => cfg[:hostname],
+                }
+            end
+
+            # Product install, setup etc.
+            $install = <<-CONTENTS
+                bash /vagrant/install/install.sh #{cfg[:distro]} "#{cfg[:web]}"
+            CONTENTS
+            node.vm.provision "install", type: "shell", inline: $install
         end
     end
 end

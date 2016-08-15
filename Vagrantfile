@@ -2,6 +2,7 @@
 # vi: set ft=ruby :
 require './requirements.rb'
 require './boxes.rb'
+VAGRANTFILE_API_VERSION = "2"
 
 # Don't touch unless you know what you're doing!
 
@@ -54,46 +55,30 @@ Vagrant.configure("2") do |config|
             # Virtualbox specific.
             node.vm.provider :virtualbox do |vbox|
                 #vbox.gui = true
-                vbox.customize ["modifyvm", :id, "--name", cfg[:name]]
+                vbox.customize ["modifyvm", :id, "--name", cfg[:boxname]]
                 vbox.customize ["modifyvm", :id, "--usb", "off"]
                 vbox.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
                 vbox.customize ["modifyvm", :id, "--memory", "512"]
             end
 
             # Setup folder mounting.
-            node.vm.synced_folder ".", "/vagrant"
+            node.vm.synced_folder ".", "/vagrant/", :mount_options => [ "dmode=777", "fmode=666" ]
 
             # Start the box up.
             $config = <<-CONTENTS
-            # Setup fastestmirror plugin
-            INSTALLED=$(yum list installed --disablerepo='*' --enablerepo='sl' yum-plugin-fastestmirror 2>&1)
-            if [ "$?" != "0" ]; then
-                yum install -y -q --disablerepo="*" --enablerepo="sl" yum-plugin-fastestmirror
-                if [ -d /etc/yum.repos.d ]; then
-                    sed -i 's/^#mirrorlist/mirrorlist/' /etc/yum.repos.d/*.repo
-                fi
-                yum clean -q all
-            fi
-
-            ORIG=$(md5sum /etc/yum/pluginconf.d/fastestmirror.conf | cut -f 1 -d ' ')
-            TEST=$(md5sum /vagrant/install/files/fastestmirror.conf | cut -f 1 -d ' ')
-            if [[ "$ORIG" != "$TEST" ]]; then
-                cp /vagrant/install/files/fastestmirror.conf /etc/yum/pluginconf.d/fastestmirror.conf
-                yum clean -q all
-            fi
-
-            #bash /vagrant/install/ssh-init.sh
-            #bash /vagrant/install/git-config.sh
+            echo "Installing ansible"
+            sudo yum install -y epel-release
+            sudo yum install -y ansible
             CONTENTS
+
             node.vm.provision "config", type: "shell" do |s|
                 s.inline = $config
             end
 
-            node.vm.provision "system", type: "ansibleLocal" do |a|
+            node.vm.provision :ansible_local do |a|
                 a.playbook       = "install/systems/system.#{cfg[:distro]}.#{cfg[:web]}.yml"
-                a.verbose        = false
-                a.guest_folder   = "/vagrant/install"
-                a.limit          = "#{cfg[:name]}"
+                a.verbose        = true
+                a.install        = true
                 a.extra_vars     = {
                     "url"    => cfg[:hostname],
                 }

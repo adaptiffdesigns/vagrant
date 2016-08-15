@@ -9,3 +9,4 @@ www/*
 !www/index.php
 postinstall/*
 !postinstall/README.md
+install/systems/system.centos7.nginx.retry

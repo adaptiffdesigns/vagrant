@@ -1,6 +1,18 @@
 # -*- mode: ruby -*-
 # # vi: set ft=ruby :
 PRODUCTS = {
+    :centos => {
+        :arch     => "x86_64",
+        :box      => "IngussNeilands/centos7-blank", #"triplesensereply/centos-7-64-ansible", #"bento/centos-7.2"
+        :ip       => "192.168.50.4",
+        :hostname => "centos.nginx.phalconvagrant.com", # Fill in desired hostname
+        :web      => "nginx",
+        :name     => "nginx",
+        :distro   => "centos7",
+        :boxname  => "phalcon_centos_7_nginx",
+    },
+}
+<<-DOC
     :ubuntuapache => {
         :arch     => "x86_64",
         :box      => "ubuntu/trusty64",
@@ -9,6 +21,7 @@ PRODUCTS = {
         :web      => "apache",
         :name     => "apache",
         :distro   => "ubuntu",
+        :boxname  => "phalcon_centos_7_nginx",
     },
     :ubuntunginx => {
         :arch     => "x86_64",
@@ -18,14 +31,6 @@ PRODUCTS = {
         :web      => "nginx",
         :name     => "nginx",
         :distro   => "ubuntu",
+        :boxname  => "phalcon_centos_7_nginx",
     },
-    :centos => {
-        :arch     => "x86_64",
-        :box      => "bento/centos-7.2",
-        :ip       => "192.168.50.4",
-        :hostname => "centos.nginx.phalconvagrant.com", # Fill in desired hostname
-        :web      => "nginx",
-        :name     => "nginx",
-        :distro   => "centos7",
-    },
-}
+    DOC

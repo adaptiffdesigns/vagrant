@@ -62,7 +62,7 @@ Vagrant.configure("2") do |config|
             end
 
             # Setup folder mounting.
-            node.vm.synced_folder ".", "/vagrant/", :mount_options => [ "dmode=777", "fmode=666" ]
+            node.vm.synced_folder ".", "/vagrant/", :mount_options => [ "dmode=777", "fmode=777" ]
 
             # Start the box up.
             $config = <<-CONTENTS
@@ -86,7 +86,7 @@ Vagrant.configure("2") do |config|
 
             # Product install, setup etc.
             $install = <<-CONTENTS
-                bash /vagrant/install/install.sh #{cfg[:distro]} "#{cfg[:web]}"
+                #bash /vagrant/install/install.sh #{cfg[:distro]} "#{cfg[:web]}"
             CONTENTS
             node.vm.provision "install", type: "shell", inline: $install
         end

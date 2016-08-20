@@ -12,6 +12,11 @@
       get_url: url=http://rpms.famillecollet.com/enterprise/remi-release-7.rpm dest=/root/
     - name: install remi repo rpm
       yum: name=/root/remi-release-7.rpm state=present
+    - name: "enable mongodb repo"
+      copy: src={{ item.key }} dest={{ item.value.dest }}
+      with_dict:
+        "./files/mongodb-org-3.2.repo":
+          dest: "/etc/yum.repos.d/mongodb-org-3.2.repo"
     - name: "install packages"
       yum: enablerepo=remi,remi-php56 name={{ item }} state=present
       with_items:
@@ -20,6 +25,8 @@
         - inotify-tools
         - libnotify
         - git
+        - vim
+        - redis
         - sudo
         - nginx
         - openssl-perl
@@ -53,24 +60,44 @@
         - php-zip
         - php-devel
         - php-mysql
+        - php-sqlite
+        - zlib-devel
+        - pcre-devel
         - gcc
         - libtool
+        - mariadb-server
+        - mariadb
+        - sqlite
+        - mongodb-org
     - name: "add groups"
       group: name=apache state=present
     - name: "add users"
       user: name=apache state=present groups=apache shell=/sbin/nologin home=/var/www
     - name: "initialising postgresql"
-      shell: "postgresql-setup initdb"
+      shell: "#postgresql-setup initdb"
+    - name: "setup postgresql"
+      copy: src={{ item.key }} dest={{ item.value.dest }} owner={{ item.value.user }} group={{ item.value.group }} mode={{ item.value.mask }}
+      with_dict:
+        "./files/pg_hba.conf":
+          dest: "/var/lib/pgsql/data/pg_hba.conf"
+          user: postgres
+          group: postgres
+          mask: "0644"
     - name: "installing phalconphp"
       shell: "/vagrant/install/phalcon.sh"
-    - name: "stopping services"
-      service: name={{ item }} enabled=no state=stopped
-      with_items:
-          - "httpd"
     - name: "starting services"
       service: name={{ item }} enabled=yes state=restarted
       with_items:
+          - "redis"
           - "postgresql"
           - "nginx"
           - "php-fpm"
+          - "mariadb"
+          # - "mongodb"
+    # - name: "initialising mariadb"
+    #   shell: "/vagrant/install/mysql.sh"
+    # - name: "initialising redis"
+    #   shell: "/vagrant/install/redis.sh"
+    # - name: "initialising mongodb"
+    #   shell: "/vagrant/install/mongodb.sh"
 ...

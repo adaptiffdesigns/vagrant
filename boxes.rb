@@ -3,7 +3,7 @@
 PRODUCTS = {
     :centos => {
         :arch     => "x86_64",
-        :box      => "IngussNeilands/centos7-blank", #"triplesensereply/centos-7-64-ansible", #"bento/centos-7.2"
+        :box      => "IngussNeilands/centos7-blank",
         :ip       => "192.168.50.4",
         :hostname => "centos.nginx.phalconvagrant.com", # Fill in desired hostname
         :web      => "nginx",
